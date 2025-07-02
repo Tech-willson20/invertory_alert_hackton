@@ -32,7 +32,6 @@
                 <thead>
                     <tr>
                         <th>Product Name</th>
-                        <th>SKU</th>
                         <th>Current Stock</th>
                         <th>Threshold</th>
                         <th>Status</th>
@@ -47,7 +46,6 @@
                         <td>
                             <a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a>
                         </td>
-                        <td>{{ product.sku }}</td>
                         <td>{{ product.current_stock }}</td>
                         <td>{{ product.low_stock_threshold }}</td>
                         <td>
@@ -72,7 +70,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="8" class="text-center text-muted">No products found.</td>
+                        <td colspan="7" class="text-center text-muted">No products found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

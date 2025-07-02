@@ -1,13 +1,214 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
-from django.http import JsonResponse
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+
+def user_login(request):
+    """Handle user login"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = CustomAuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            username = form.cleaned_data.get('username')
+            password = form.cleaned_data.get('password')
+            user = authenticate(username=username, password=password)
+            if user is not None:
+                login(request, user)
+                messages.success(request, f'Welcome back, {user.first_name or user.username}!')
+                next_url = request.GET.get('next', 'dashboard')
+                return redirect(next_url)
+            else:
+                messages.error(request, 'Invalid username or password.')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = CustomAuthenticationForm()
+    
+    return render(request, 'inventory/login.html', {'form': form})
+
+def user_signup(request):
+    """Handle user registration"""
+    if request.user.is_authenticated:
+        return redirect('dashboard')
+    
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'Account created successfully! Welcome, {user.first_name}!')
+            login(request, user)
+            return redirect('dashboard')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = CustomUserCreationForm()
+    
+    return render(request, 'inventory/signup.html', {'form': form})
+
+def user_logout(request):
+    """Handle user logout"""
+    logout(request)
+    messages.success(request, 'You have been logged out successfully.')
+    return redirect('login')
+
+def resolve_alert(request, alert_id):
+    alert = get_object_or_404(StockAlert, pk=alert_id)
+    alert.resolve()
+    messages.success(request, 'Alert resolved')
+    return redirect('alerts')
+
+def restock_view(request):
+    """View to display all products that need restocking"""
+    products_needing_restock = []
+    
+    for product in Product.objects.all():
+        restock_date = product.get_restock_recommendation()
+        if restock_date and restock_date <= timezone.now().date() + timedelta(days=14):
+            products_needing_restock.append({
+                'product': product,
+                'restock_date': restock_date,
+                'days_until_restock': (restock_date - timezone.now().date()).days,
+                'urgency': 'critical' if restock_date <= timezone.now().date() + timedelta(days=3) else 
+                          'high' if restock_date <= timezone.now().date() + timedelta(days=7) else 'medium'
+            })
+    
+    # Sort by urgency and then by days until restock
+    products_needing_restock.sort(key=lambda x: (x['urgency'] == 'medium', x['urgency'] == 'high', x['days_until_restock']))
+    
+    context = {
+        'products_needing_restock': products_needing_restock,
+        'total_products_needing_restock': len(products_needing_restock),
+    }
+    return render(request, 'inventory/restock.html', context)
+
+def products_management(request):
+    """View to manage products - list all products and add new ones"""
+    # Handle adding new product
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            product = form.save()
+            messages.success(request, f'Product "{product.name}" has been added successfully!')
+            return redirect('products_management')
+        else:
+            messages.error(request, 'Please correct the errors below.')
+    else:
+        form = ProductForm()
+    
+    # Get all products with search functionality
+    products = Product.objects.all().order_by('-created_at')
+    search = request.GET.get('search')
+    if search:
+        products = products.filter(
+            Q(name__icontains=search) | Q(sku__icontains=search)
+        )
+    
+    # Get statistics
+    total_products = Product.objects.count()
+    low_stock_products = Product.objects.filter(
+        current_stock__lte=F('low_stock_threshold')
+    )
+    low_stock_count = low_stock_products.count()
+    out_of_stock_count = Product.objects.filter(current_stock=0).count()
+    active_stock_count = Product.objects.filter(current_stock__gt=0).count()
+    
+    context = {
+        'products': products,
+        'form': form,
+        'search': search,
+        'total_products': total_products,
+        'low_stock_count': low_stock_count,
+        'out_of_stock_count': out_of_stock_count,
+        'active_stock_count': active_stock_count,
+        'low_stock_products': low_stock_products,
+    }
+    return render(request, 'inventory/products_management.html', context)
+
+def low_stock_management(request):
+    """View to manage low stock products and add stock"""
+    # Handle adding stock to a product
+    if request.method == 'POST':
+        product_id = request.POST.get('product_id')
+        product = get_object_or_404(Product, pk=product_id)
+        form = AddStockForm(request.POST)
+        
+        if form.is_valid():
+            quantity_to_add = form.cleaned_data['quantity']
+            notes = form.cleaned_data['notes']
+            
+            # Update the product stock
+            old_stock = product.current_stock
+            product.current_stock += quantity_to_add
+            product.save()
+            
+            # Create a success message
+            messages.success(
+                request, 
+                f'Added {quantity_to_add} units to {product.name}. '
+                f'Stock updated from {old_stock} to {product.current_stock}.'
+            )
+            
+            # If notes were provided, you could log them (optional)
+            if notes:
+                messages.info(request, f'Notes: {notes}')
+            
+            return redirect('low_stock_management')
+        else:
+            messages.error(request, 'Please correct the errors in the form.')
+    
+    # Get all low stock products
+    low_stock_products = Product.objects.filter(
+        current_stock__lte=F('low_stock_threshold')
+    ).order_by('current_stock')
+    
+    # Get statistics
+    total_low_stock = low_stock_products.count()
+    out_of_stock_products = Product.objects.filter(current_stock=0)
+    out_of_stock_count = out_of_stock_products.count()
+    critical_stock_products = Product.objects.filter(
+        current_stock__gt=0,
+        current_stock__lte=F('low_stock_threshold') / 2
+    )
+    critical_stock_count = critical_stock_products.count()
+    
+    # Categorize products by urgency
+    categorized_products = []
+    for product in low_stock_products:
+        if product.current_stock == 0:
+            urgency = 'critical'
+            urgency_text = 'Out of Stock'
+        elif product.current_stock <= product.low_stock_threshold / 2:
+            urgency = 'high'
+            urgency_text = 'Very Low'
+        else:
+            urgency = 'medium'
+            urgency_text = 'Low Stock'
+        
+        categorized_products.append({
+            'product': product,
+            'urgency': urgency,
+            'urgency_text': urgency_text,
+            'stock_percentage': (product.current_stock / product.low_stock_threshold * 100) if product.low_stock_threshold > 0 else 0
+        })
+    
+    context = {
+        'low_stock_products': categorized_products,
+        'total_low_stock': total_low_stock,
+        'out_of_stock_count': out_of_stock_count,
+        'critical_stock_count': critical_stock_count,
+        'add_stock_form': AddStockForm(),
+    }
+    return render(request, 'inventory/low_stock_management.html', context)
 from django.views.generic import ListView
 from django.db.models import Q, F
 from django.utils import timezone
 from datetime import timedelta
 from django.core.exceptions import ValidationError
 from .models import Product, Sale, StockAlert
-from .forms import ProductForm, SaleForm
+from .forms import ProductForm, SaleForm, AddStockForm, CustomUserCreationForm, CustomAuthenticationForm
 
 class ProductListView(ListView):
     model = Product
@@ -85,6 +286,7 @@ def add_sale(request, product_id):
     
     return render(request, 'inventory/add_sale.html', {'form': form, 'product': product})
 
+@login_required
 def dashboard(request):
     total_products = Product.objects.count()
     low_stock_count = Product.objects.filter(
@@ -116,4 +318,56 @@ def resolve_alert(request, alert_id):
     alert = get_object_or_404(StockAlert, pk=alert_id)
     alert.resolve()
     messages.success(request, 'Alert resolved')
+    return redirect('alerts')
+
+def resolve_alert_with_restock(request, alert_id):
+    """Resolve an alert by adding stock to the product"""
+    alert = get_object_or_404(StockAlert, pk=alert_id)
+    product = alert.product
+    
+    if request.method == 'POST':
+        quantity = request.POST.get('quantity')
+        notes = request.POST.get('notes', '')
+        
+        try:
+            quantity = int(quantity)
+            if quantity <= 0:
+                raise ValueError("Quantity must be positive")
+            
+            # Update product stock
+            old_stock = product.current_stock
+            product.current_stock += quantity
+            product.save()
+            
+            # Resolve the alert
+            alert.resolve()
+            
+            # Create success message
+            messages.success(
+                request,
+                f'Successfully added {quantity} units to {product.name}. '
+                f'Stock updated from {old_stock} to {product.current_stock}. Alert resolved!'
+            )
+            
+            # Add notes message if provided
+            if notes.strip():
+                messages.info(request, f'Notes: {notes}')
+            
+            # Check if stock is now above threshold
+            if product.current_stock > product.low_stock_threshold:
+                messages.success(
+                    request,
+                    f'✅ {product.name} is now above the low stock threshold!'
+                )
+            else:
+                messages.warning(
+                    request,
+                    f'⚠️ {product.name} is still below the low stock threshold. Consider adding more stock.'
+                )
+                
+        except (ValueError, TypeError):
+            messages.error(request, 'Please enter a valid quantity.')
+        except Exception as e:
+            messages.error(request, f'An error occurred: {str(e)}')
+    
     return redirect('alerts')

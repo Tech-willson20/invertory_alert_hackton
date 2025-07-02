@@ -11,56 +11,64 @@
 
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card bg-primary text-white">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-box fa-2x me-3"></i>
-                    <div>
-                        <h5 class="card-title">Total Products</h5>
-                        <h3>{{ total_products }}</h3>
+        <a href="{% url 'products_management' %}" class="text-decoration-none">
+            <div class="card bg-primary text-white h-100 card-hover">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-box fa-2x me-3"></i>
+                        <div>
+                            <h5 class="card-title">Total Products</h5>
+                            <h3>{{ total_products }}</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card bg-warning text-white">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
-                    <div>
-                        <h5 class="card-title">Low Stock</h5>
-                        <h3>{{ low_stock_count }}</h3>
+        <a href="{% url 'low_stock_management' %}" class="text-decoration-none">
+            <div class="card bg-warning text-white h-100 card-hover">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                        <div>
+                            <h5 class="card-title">Low Stock</h5>
+                            <h3>{{ low_stock_count }}</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card bg-danger text-white">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-bell fa-2x me-3"></i>
-                    <div>
-                        <h5 class="card-title">Active Alerts</h5>
-                        <h3>{{ active_alerts }}</h3>
+        <a href="{% url 'alerts' %}" class="text-decoration-none">
+            <div class="card bg-danger text-white h-100 card-hover">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-bell fa-2x me-3"></i>
+                        <div>
+                            <h5 class="card-title">Active Alerts</h5>
+                            <h3>{{ active_alerts }}</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
     <div class="col-md-3">
-        <div class="card bg-info text-white">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-truck fa-2x me-3"></i>
-                    <div>
-                        <h5 class="card-title">Need Restock</h5>
-                        <h3>{{ products_needing_restock|length }}</h3>
+        <a href="{% url 'restock' %}" class="text-decoration-none">
+            <div class="card bg-info text-white h-100 card-hover">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-truck fa-2x me-3"></i>
+                        <div>
+                            <h5 class="card-title">Need Restock</h5>
+                            <h3>{{ products_needing_restock|length }}</h3>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
     </div>
 </div>
 
@@ -105,13 +113,20 @@
             </div>
             <div class="card-body">
                 {% if products_needing_restock %}
-                    {% for product in products_needing_restock %}
+                    {% for product in products_needing_restock|slice:":2" %}
                         <div class="alert alert-warning mb-2">
                             <strong>{{ product.name }}</strong><br>
                             <small>Current stock: {{ product.current_stock }}</small><br>
                             <small>Restock by: {{ product.get_restock_recommendation }}</small>
                         </div>
                     {% endfor %}
+                    {% if products_needing_restock|length > 2 %}
+                        <div class="text-center mt-3">
+                            <a href="{% url 'restock' %}" class="btn btn-outline-primary btn-sm">
+                                <i class="fas fa-eye"></i> View More ({{ products_needing_restock|length|add:"-2" }} more)
+                            </a>
+                        </div>
+                    {% endif %}
                 {% else %}
                     <p class="text-muted">No immediate restocking needed.</p>
                 {% endif %}

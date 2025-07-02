@@ -15,7 +15,6 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <p><strong>SKU:</strong> {{ product.sku }}</p>
                         <p><strong>Current Stock:</strong> {{ product.current_stock }} units</p>
                         <p><strong>Low Stock Threshold:</strong> {{ product.low_stock_threshold }} units</p>
                     </div>
@@ -42,8 +41,8 @@
                     <a href="{% url 'add_sale' product.pk %}" class="btn btn-success">
                         <i class="fas fa-plus"></i> Record Sale
                     </a>
-                    <a href="{% url 'product_list' %}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> Back to Products
+                    <a href="javascript:history.back()" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back
                     </a>
                 </div>
             </div>

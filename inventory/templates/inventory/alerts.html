@@ -5,7 +5,12 @@
 {% block content %}
 <div class="row">
     <div class="col-md-12">
-        <h1 class="mb-4">Active Alerts</h1>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-bell text-danger"></i> Active Alerts</h1>
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
     </div>
 </div>
 
@@ -21,11 +26,28 @@
                                 {{ alert.get_alert_type_display }}
                             </h5>
                             <p>{{ alert.message }}</p>
+                            <div class="mt-2">
+                                <span class="badge bg-secondary">Product: {{ alert.product.name }}</span>
+                                <span class="badge bg-info">Current Stock: {{ alert.product.current_stock }}</span>
+                                <span class="badge bg-warning">Threshold: {{ alert.product.low_stock_threshold }}</span>
+                            </div>
                             <small class="text-muted">Created: {{ alert.created_at|date:"M d, Y H:i" }}</small>
                         </div>
                         <div>
-                            <a href="{% url 'product_detail' alert.product.pk %}" class="btn btn-sm btn-outline-primary">View Product</a>
-                            <a href="{% url 'resolve_alert' alert.pk %}" class="btn btn-sm btn-outline-success">Resolve</a>
+                            <div class="btn-group" role="group">
+                                <a href="{% url 'product_detail' alert.product.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-eye"></i> View Product
+                                </a>
+                                <button type="button" class="btn btn-sm btn-success" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#restockModal"
+                                        onclick="setRestockAlert({{ alert.pk }}, '{{ alert.product.name }}', {{ alert.product.current_stock }}, {{ alert.product.low_stock_threshold }})">
+                                    <i class="fas fa-plus"></i> Restock & Resolve
+                                </button>
+                                <a href="{% url 'resolve_alert' alert.pk %}" class="btn btn-sm btn-outline-secondary" title="Resolve without restocking">
+                                    <i class="fas fa-check"></i> Resolve Only
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -34,8 +56,147 @@
             <div class="alert alert-success">
                 <h5><i class="fas fa-check-circle"></i> All Clear!</h5>
                 <p>No active alerts at this time.</p>
+                <a href="{% url 'dashboard' %}" class="btn btn-primary">
+                    <i class="fas fa-tachometer-alt"></i> Back to Dashboard
+                </a>
             </div>
         {% endif %}
     </div>
 </div>
+
+<!-- Restock Modal -->
+<div class="modal fade" id="restockModal" tabindex="-1" aria-labelledby="restockModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="restockModalLabel">
+                    <i class="fas fa-plus text-success"></i> Restock & Resolve Alert
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'resolve_alert_with_restock' 0 %}" id="restockForm">
+                <div class="modal-body">
+                    {% csrf_token %}
+                    
+                    <div class="alert alert-info">
+                        <h6><i class="fas fa-info-circle"></i> Product Information</h6>
+                        <p><strong>Product:</strong> <span id="modalProductName"></span></p>
+                        <p><strong>Current Stock:</strong> <span id="modalCurrentStock"></span> units</p>
+                        <p><strong>Low Stock Threshold:</strong> <span id="modalThreshold"></span> units</p>
+                        <p><strong>Recommended Restock:</strong> <span id="recommendedRestock"></span> units</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="restockQuantity" class="form-label">
+                            <i class="fas fa-plus"></i> Quantity to Add <span class="text-danger">*</span>
+                        </label>
+                        <input type="number" class="form-control" id="restockQuantity" name="quantity" min="1" required>
+                        <div class="form-text">
+                            Enter the amount of stock to add. 
+                            <button type="button" class="btn btn-link btn-sm p-0" onclick="useRecommended()">
+                                Use recommended amount
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="restockNotes" class="form-label">
+                            <i class="fas fa-sticky-note"></i> Notes (Optional)
+                        </label>
+                        <textarea class="form-control" id="restockNotes" name="notes" rows="3" 
+                                placeholder="Optional notes about this restock..."></textarea>
+                    </div>
+                    
+                    <div class="alert alert-success" id="stockCalculation" style="display: none;">
+                        <h6><i class="fas fa-calculator"></i> Stock Calculation</h6>
+                        <p>New stock level will be: <strong><span id="newStockLevel"></span></strong> units</p>
+                        <p id="stockStatus"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Restock & Resolve Alert
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentAlert = null;
+
+function setRestockAlert(alertId, productName, currentStock, threshold) {
+    currentAlert = {
+        id: alertId,
+        productName: productName,
+        currentStock: currentStock,
+        threshold: threshold
+    };
+    
+    // Calculate recommended restock amount (double the threshold minus current stock, minimum 1)
+    const recommendedAmount = Math.max(1, (threshold * 2) - currentStock);
+    
+    // Update modal content
+    document.getElementById('modalProductName').textContent = productName;
+    document.getElementById('modalCurrentStock').textContent = currentStock;
+    document.getElementById('modalThreshold').textContent = threshold;
+    document.getElementById('recommendedRestock').textContent = recommendedAmount;
+    
+    // Store recommended amount for later use
+    currentAlert.recommendedAmount = recommendedAmount;
+    
+    // Update form action
+    document.getElementById('restockForm').action = "{% url 'resolve_alert_with_restock' 0 %}".replace('0', alertId);
+    
+    // Reset form
+    document.getElementById('restockQuantity').value = '';
+    document.getElementById('restockNotes').value = '';
+    document.getElementById('stockCalculation').style.display = 'none';
+}
+
+function useRecommended() {
+    if (currentAlert && currentAlert.recommendedAmount) {
+        document.getElementById('restockQuantity').value = currentAlert.recommendedAmount;
+        // Trigger the input event to update the calculation
+        document.getElementById('restockQuantity').dispatchEvent(new Event('input'));
+    }
+}
+
+// Real-time stock calculation
+document.addEventListener('DOMContentLoaded', function() {
+    const quantityInput = document.getElementById('restockQuantity');
+    const stockCalculation = document.getElementById('stockCalculation');
+    const newStockLevel = document.getElementById('newStockLevel');
+    const stockStatus = document.getElementById('stockStatus');
+    
+    if (quantityInput) {
+        quantityInput.addEventListener('input', function() {
+            const quantity = parseInt(this.value) || 0;
+            
+            if (quantity > 0 && currentAlert) {
+                const newStock = currentAlert.currentStock + quantity;
+                newStockLevel.textContent = newStock;
+                
+                if (newStock > currentAlert.threshold) {
+                    const surplus = newStock - currentAlert.threshold;
+                    stockStatus.innerHTML = `<span class="text-success"><i class="fas fa-check-circle"></i> Stock will be above threshold by ${surplus} units - Alert will be resolved!</span>`;
+                } else if (newStock === currentAlert.threshold) {
+                    stockStatus.innerHTML = '<span class="text-success"><i class="fas fa-check-circle"></i> Stock will meet the threshold exactly - Alert will be resolved!</span>';
+                } else {
+                    const deficit = currentAlert.threshold - newStock;
+                    stockStatus.innerHTML = `<span class="text-warning"><i class="fas fa-exclamation-triangle"></i> Stock will still be ${deficit} units below threshold</span>`;
+                }
+                
+                stockCalculation.style.display = 'block';
+            } else {
+                stockCalculation.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
 {% endblock %}
