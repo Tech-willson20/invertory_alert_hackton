@@ -1,0 +1,41 @@
+{% extends 'inventory/base.html' %}
+
+{% block title %}Alerts - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Active Alerts</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        {% if alerts %}
+            {% for alert in alerts %}
+                <div class="alert alert-{% if alert.alert_type == 'LOW_STOCK' %}warning{% elif alert.alert_type == 'RESTOCK_NEEDED' %}danger{% else %}info{% endif %} alert-dismissible">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5>
+                                <i class="fas fa-{% if alert.alert_type == 'LOW_STOCK' %}exclamation-triangle{% elif alert.alert_type == 'RESTOCK_NEEDED' %}truck{% else %}info-circle{% endif %}"></i>
+                                {{ alert.get_alert_type_display }}
+                            </h5>
+                            <p>{{ alert.message }}</p>
+                            <small class="text-muted">Created: {{ alert.created_at|date:"M d, Y H:i" }}</small>
+                        </div>
+                        <div>
+                            <a href="{% url 'product_detail' alert.product.pk %}" class="btn btn-sm btn-outline-primary">View Product</a>
+                            <a href="{% url 'resolve_alert' alert.pk %}" class="btn btn-sm btn-outline-success">Resolve</a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-success">
+                <h5><i class="fas fa-check-circle"></i> All Clear!</h5>
+                <p>No active alerts at this time.</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

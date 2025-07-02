@@ -1,0 +1,83 @@
+{% extends 'inventory/base.html' %}
+
+{% block title %}Products - Inventory Management{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">Product Inventory</h1>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <form method="get" class="d-flex">
+            <input type="text" name="search" class="form-control me-2" placeholder="Search products..." value="{{ request.GET.search }}">
+            <button type="submit" class="btn btn-outline-primary">Search</button>
+        </form>
+    </div>
+</div>
+
+{% if low_stock_products %}
+<div class="alert alert-warning">
+    <h5><i class="fas fa-exclamation-triangle"></i> Low Stock Alert</h5>
+    <p>{{ low_stock_products.count }} product(s) are running low on stock.</p>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>SKU</th>
+                        <th>Current Stock</th>
+                        <th>Threshold</th>
+                        <th>Status</th>
+                        <th>Daily Avg Sales</th>
+                        <th>Predicted Stockout</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                    <tr {% if product.is_low_stock %}class="table-warning"{% endif %}>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}">{{ product.name }}</a>
+                        </td>
+                        <td>{{ product.sku }}</td>
+                        <td>{{ product.current_stock }}</td>
+                        <td>{{ product.low_stock_threshold }}</td>
+                        <td>
+                            {% if product.is_low_stock %}
+                                <span class="badge bg-warning">Low Stock</span>
+                            {% else %}
+                                <span class="badge bg-success">In Stock</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ product.get_daily_sales_average|floatformat:1 }}</td>
+                        <td>
+                            {% if product.predict_stockout_date %}
+                                {{ product.predict_stockout_date }}
+                            {% else %}
+                                <span class="text-muted">No data</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'product_detail' product.pk %}" class="btn btn-sm btn-outline-primary">View</a>
+                            <a href="{% url 'add_sale' product.pk %}" class="btn btn-sm btn-outline-success">Add Sale</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted">No products found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
