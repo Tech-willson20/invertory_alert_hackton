@@ -6,10 +6,9 @@ from .models import Product, Sale
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'sku', 'current_stock', 'low_stock_threshold']
+        fields = ['name', 'current_stock', 'low_stock_threshold']
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'sku': forms.TextInput(attrs={'class': 'form-control'}),
             'current_stock': forms.NumberInput(attrs={'class': 'form-control'}),
             'low_stock_threshold': forms.NumberInput(attrs={'class': 'form-control'}),
         }

@@ -2,14 +2,31 @@ from django.db import models
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.core.exceptions import ValidationError
+import uuid
 
 class Product(models.Model):
     name = models.CharField(max_length=200)
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50, unique=True, blank=True)
     current_stock = models.PositiveIntegerField(default=0)
     low_stock_threshold = models.PositiveIntegerField(default=10)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    
+    def save(self, *args, **kwargs):
+        if not self.sku:
+            # Auto-generate SKU based on name and timestamp
+            name_part = ''.join(self.name.split())[:6].upper()
+            timestamp_part = str(int(timezone.now().timestamp()))[-6:]
+            self.sku = f"{name_part}-{timestamp_part}"
+            
+            # Ensure uniqueness
+            counter = 1
+            original_sku = self.sku
+            while Product.objects.filter(sku=self.sku).exists():
+                self.sku = f"{original_sku}-{counter}"
+                counter += 1
+        
+        super().save(*args, **kwargs)
     
     def __str__(self):
         return f"{self.name} ({self.sku})"

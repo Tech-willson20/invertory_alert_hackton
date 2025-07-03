@@ -6,7 +6,7 @@
 <div class="row">
     <div class="col-md-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-exclamation-triangle text-warning"></i> Low Stock Management</h1>
+            <h1><i class="fas fa-exclamation-triangle text-warning"></i>Stock Management</h1>
             <a href="{% url 'dashboard' %}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Back to Dashboard
             </a>
@@ -17,25 +17,12 @@
 <!-- Statistics Cards -->
 <div class="row mb-4">
     <div class="col-md-3">
-        <div class="card bg-warning text-white">
+        <div class="card bg-danger text-white">
             <div class="card-body">
                 <div class="d-flex align-items-center">
                     <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
                     <div>
-                        <h5 class="card-title">Total Low Stock</h5>
-                        <h3>{{ total_low_stock }}</h3>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-danger text-white">
-            <div class="card-body">
-                <div class="d-flex align-items-center">
-                    <i class="fas fa-times-circle fa-2x me-3"></i>
-                    <div>
-                        <h5 class="card-title">Out of Stock</h5>
+                        <h5 class="card-title">Out Of Stock</h5>
                         <h3>{{ out_of_stock_count }}</h3>
                     </div>
                 </div>
@@ -43,24 +30,36 @@
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-dark text-white">
+        <div class="card bg-info text-white">
             <div class="card-body">
                 <div class="d-flex align-items-center">
-                    <i class="fas fa-fire fa-2x me-3"></i>
+                    <i class="fas fa-times-circle fa-2x me-3"></i>
                     <div>
-                        <h5 class="card-title">Critical Stock</h5>
-                        <h3>{{ critical_stock_count }}</h3>
+                        <h5 class="card-title">Low Stock</h5>
+                        <h3>{{ low_count }}</h3>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     <div class="col-md-3">
-        <div class="card bg-info text-white">
+        <div class="card bg-warning text-white">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-fire fa-2x me-3"></i>
+                    <div>
+                        <h5 class="card-title">Very low Stock</h5>
+                        <h3>{{very_low_count }}</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card bg-dark text-white">
             <div class="card-body text-center">
-                <i class="fas fa-plus fa-2x mb-2"></i>
+                <i class="fas fa-plus fa-2x mb-3"></i>
                 <h6 class="card-title">Quick Add Stock</h6>
-                <small>Select products below</small>
             </div>
         </div>
     </div>
@@ -216,7 +215,7 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="{{ add_stock_form.quantity.id_for_label }}" class="form-label">
+                        <label for="id_quantity" class="form-label">
                             <i class="fas fa-plus"></i> Quantity to Add
                         </label>
                         {{ add_stock_form.quantity }}
@@ -269,14 +268,14 @@ function setProductForStock(productId, productName, currentStock) {
     currentStockValue = currentStock;
     
     // Reset form
-    document.getElementById('{{ add_stock_form.quantity.id_for_label }}').value = '';
-    document.getElementById('{{ add_stock_form.notes.id_for_label }}').value = '';
+    document.getElementById('id_quantity').value = '';
+    document.getElementById('id_notes').value = '';
     document.getElementById('stockPreview').style.display = 'none';
 }
 
 // Real-time stock calculation
 document.addEventListener('DOMContentLoaded', function() {
-    const quantityInput = document.getElementById('{{ add_stock_form.quantity.id_for_label }}');
+    const quantityInput = document.getElementById('id_quantity');
     const stockPreview = document.getElementById('stockPreview');
     const newStockLevel = document.getElementById('newStockLevel');
     

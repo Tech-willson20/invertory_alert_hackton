@@ -41,7 +41,7 @@
                     <a href="{% url 'add_sale' product.pk %}" class="btn btn-success">
                         <i class="fas fa-plus"></i> Record Sale
                     </a>
-                    <a href="javascript:history.back()" class="btn btn-secondary">
+                    <a href="#" onclick="goBackToProductPages()" class="btn btn-secondary">
                         <i class="fas fa-arrow-left"></i> Back
                     </a>
                 </div>
@@ -68,4 +68,31 @@
         </div>
     </div>
 </div>
+
+<script>
+function goBackToProductPages() {
+    const referrer = document.referrer;
+    
+    // Check if user came from low stock management
+    if (referrer.includes('low-stock')) {
+        window.location.href = "{% url 'low_stock_management' %}";
+    }
+    // Check if user came from products management
+    else if (referrer.includes('products/manage')) {
+        window.location.href = "{% url 'products_management' %}";
+    }
+    // Check if user came from restock page
+    else if (referrer.includes('restock')) {
+        window.location.href = "{% url 'restock' %}";
+    }
+    // Check if user came from alerts page
+    else if (referrer.includes('alerts')) {
+        window.location.href = "{% url 'alerts' %}";
+    }
+    // Default fallback to products management
+    else {
+        window.location.href = "{% url 'products_management' %}";
+    }
+}
+</script>
 {% endblock %}

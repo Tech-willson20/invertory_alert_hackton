@@ -3,6 +3,12 @@ from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django.views.generic import ListView
+from django.db.models import Q, F
+from datetime import timedelta
+from django.core.exceptions import ValidationError
+from .models import Product, Sale, StockAlert
+from .forms import ProductForm, SaleForm, AddStockForm, CustomUserCreationForm, CustomAuthenticationForm
 
 def user_login(request):
     """Handle user login"""
@@ -77,10 +83,18 @@ def restock_view(request):
     
     # Sort by urgency and then by days until restock
     products_needing_restock.sort(key=lambda x: (x['urgency'] == 'medium', x['urgency'] == 'high', x['days_until_restock']))
-    
+# number of high urgency products
+    high_urgency_count = sum(1 for p in products_needing_restock if p['urgency'] == 'high')
+    medium_urgency_count = sum(1 for p in products_needing_restock if p['urgency'] == 'medium')
+    # number of critical urgency products
+    critical_urgency_count = sum(1 for p in products_needing_restock if p['urgency'] == 'critical')
     context = {
         'products_needing_restock': products_needing_restock,
         'total_products_needing_restock': len(products_needing_restock),
+        'high_urgency_count': high_urgency_count,
+        'medium_urgency_count': medium_urgency_count,
+        'low_urgency_count': len(products_needing_restock) - high_urgency_count - medium_urgency_count,
+        'critical_urgency_count': critical_urgency_count,
     }
     return render(request, 'inventory/restock.html', context)
 
@@ -102,9 +116,7 @@ def products_management(request):
     products = Product.objects.all().order_by('-created_at')
     search = request.GET.get('search')
     if search:
-        products = products.filter(
-            Q(name__icontains=search) | Q(sku__icontains=search)
-        )
+        products = products.filter(name__icontains=search)
     
     # Get statistics
     total_products = Product.objects.count()
@@ -113,7 +125,8 @@ def products_management(request):
     )
     low_stock_count = low_stock_products.count()
     out_of_stock_count = Product.objects.filter(current_stock=0).count()
-    active_stock_count = Product.objects.filter(current_stock__gt=0).count()
+    in_stock_count = Product.objects.filter(current_stock__gt=0).count()
+    active_stock_count = in_stock_count - low_stock_count 
     
     context = {
         'products': products,
@@ -164,51 +177,55 @@ def low_stock_management(request):
         current_stock__lte=F('low_stock_threshold')
     ).order_by('current_stock')
     
-    # Get statistics
-    total_low_stock = low_stock_products.count()
-    out_of_stock_products = Product.objects.filter(current_stock=0)
-    out_of_stock_count = out_of_stock_products.count()
-    critical_stock_products = Product.objects.filter(
-        current_stock__gt=0,
-        current_stock__lte=F('low_stock_threshold') / 2
-    )
-    critical_stock_count = critical_stock_products.count()
-    
-    # Categorize products by urgency
+    # Categorize products by enhanced urgency logic
     categorized_products = []
+    out_of_stock_count = 0
+    very_low_count = 0
+    low_count = 0
+    
     for product in low_stock_products:
+        # Enhanced categorization logic
         if product.current_stock == 0:
             urgency = 'critical'
             urgency_text = 'Out of Stock'
-        elif product.current_stock <= product.low_stock_threshold / 2:
+            out_of_stock_count += 1
+        elif product.current_stock <= (product.low_stock_threshold / 2):
             urgency = 'high'
             urgency_text = 'Very Low'
+            very_low_count += 1
         else:
             urgency = 'medium'
-            urgency_text = 'Low Stock'
+            urgency_text = 'Low'
+            low_count += 1
+        
+        # Calculate stock percentage
+        stock_percentage = 0
+        if product.low_stock_threshold > 0:
+            stock_percentage = (product.current_stock / product.low_stock_threshold) * 100
         
         categorized_products.append({
             'product': product,
             'urgency': urgency,
             'urgency_text': urgency_text,
-            'stock_percentage': (product.current_stock / product.low_stock_threshold * 100) if product.low_stock_threshold > 0 else 0
+            'stock_percentage': stock_percentage
         })
+    
+    # Sort by urgency: critical first, then high (very low), then medium (low)
+    urgency_order = {'critical': 0, 'high': 1, 'medium': 2}
+    categorized_products.sort(key=lambda x: (urgency_order[x['urgency']], x['stock_percentage']))
+    
+    # Calculate total low stock count
+    total_low_stock = low_stock_products.count()
     
     context = {
         'low_stock_products': categorized_products,
         'total_low_stock': total_low_stock,
         'out_of_stock_count': out_of_stock_count,
-        'critical_stock_count': critical_stock_count,
+        'very_low_count': very_low_count,
+        'low_count': low_count,
         'add_stock_form': AddStockForm(),
     }
     return render(request, 'inventory/low_stock_management.html', context)
-from django.views.generic import ListView
-from django.db.models import Q, F
-from django.utils import timezone
-from datetime import timedelta
-from django.core.exceptions import ValidationError
-from .models import Product, Sale, StockAlert
-from .forms import ProductForm, SaleForm, AddStockForm, CustomUserCreationForm, CustomAuthenticationForm
 
 class ProductListView(ListView):
     model = Product

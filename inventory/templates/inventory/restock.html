@@ -33,7 +33,7 @@
                             <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
                             <h5 class="card-title">Critical</h5>
                             <h3 class="text-danger">
-                                {{ products_needing_restock|length|add:0 }}
+                                {{ critical_urgency_count }}
                             </h3>
                             <small class="text-muted">Need immediate attention</small>
                         </div>
@@ -45,7 +45,7 @@
                             <i class="fas fa-exclamation fa-2x text-warning mb-2"></i>
                             <h5 class="card-title">High Priority</h5>
                             <h3 class="text-warning">
-                                {{ products_needing_restock|length|add:0 }}
+                                {{high_urgency_count}}
                             </h3>
                             <small class="text-muted">Restock within a week</small>
                         </div>
@@ -57,7 +57,7 @@
                             <i class="fas fa-info fa-2x text-info mb-2"></i>
                             <h5 class="card-title">Medium Priority</h5>
                             <h3 class="text-info">
-                                {{ products_needing_restock|length|add:0 }}
+                                {{ medium_urgency_count }}
                             </h3>
                             <small class="text-muted">Plan for restocking</small>
                         </div>
@@ -66,7 +66,7 @@
             </div>
 
 
-            
+
             <div class="card">
                 <div class="card-header">
                     <h5><i class="fas fa-list"></i> Products Needing Restock</h5>
